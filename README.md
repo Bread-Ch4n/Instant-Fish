@@ -1,13 +1,7 @@
 <h1 align="center">Instant Fish</h1>
+<h3 align="center">Skips the fishing minigame so you don't have to wait!</h3>
 
 <p align="center">
-  Skips the fishing minigame so you don't have to wait!
+  <a href="[https://www.nexusmods.com/iamfuture/mods/2](https://www.nexusmods.com/iamfuture/mods/3)"><img src="https://img.shields.io/badge/Instant Fish-232634?style=for-the-badge&logo=nexus-mods&logoColor=232634&color=D98F40" alt="Instant Fish"></a>
 </p>
-
-<div align="center">
-    <a href="https://www.nexusmods.com/iamfuture/mods/3">
-        <img src="https://img.shields.io/badge/Nexus%20Mods-Instant Fish-d98f40?logo=nexus-mods">
-    </a>
-</div>
-
 
