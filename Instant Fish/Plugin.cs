@@ -4,32 +4,41 @@ using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using IAmFuture.Data;
-using IAmFuture.Data.Character;
 using IAmFuture.Data.Items;
 using IAmFuture.Data.StorageItems;
 using IAmFuture.Gameplay.Character;
 using IAmFuture.Gameplay.Fishing;
-using IAmFuture.Gameplay.LootSystem;
 using IAmFuture.UserInterface.Gameplay.Fishing;
 using UnityEngine;
-using Random = System.Random;
+// using Random = System.Random;
 
 namespace Instant_Fish;
+
+public static class IEnumerableExtensions
+{
+    public static T GetRandomOrDefault<T>(this IEnumerable<T> instance)
+    {
+        int maxExclusive = instance.Count();
+        if (maxExclusive == 0)
+            return default(T);
+        int index = Random.Range(0, maxExclusive); // Assumes Unity's Random.Range is used
+        return instance.ElementAt(index);
+    }
+}
 
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BaseUnityPlugin
 {
     private static ManualLogSource _logger;
 
-    private static T GetRandomOrDefault<T>(IList<T> list)
-    {
-        if (list == null || list.Count == 0)
-            return default;
-
-        int index = new Random().Next(list.Count);
-        return list[index];
-    }
-
+    // private static T GetRandomOrDefault<T>(IList<T> list)
+    // {
+    //     if (list == null || list.Count == 0)
+    //         return default;
+    //
+    //     int index = new Random().Next(list.Count);
+    //     return list[index];
+    // }
 
     [HarmonyPatch(typeof(GUI_Fishing))]
     class AutoFishPatch
@@ -58,8 +67,7 @@ public class Plugin : BaseUnityPlugin
             if (baitCatch.UniqueSurpriseItemsRewards)
                 instance.AddRange(baitCatch.PossibleCatch.Where(baitCatchLootStack =>
                     !((Statistics)AccessTools.Field(typeof(FishingCharacterState), "statistics")
-                            .GetValue(fishingCharacterState)).LootStatistic.TotalPickedItems
-                        .TryGetValue(baitCatchLootStack.ItemObject, out _)));
+                        .GetValue(fishingCharacterState)).LootStatistic.TotalPickedItems.TryGetValue(baitCatchLootStack.ItemObject, out _)));
             else instance = baitCatch.PossibleCatch;
 
             if (instance.Count == 0) _logger.LogError("[FishingCharacterState]: No items in the possible catch list!");
@@ -68,29 +76,15 @@ public class Plugin : BaseUnityPlugin
                 AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
                     .Invoke(fishingCharacterState, new object[] { baitCatch });
 
-                BaitCatchLootStack catchLootInfo = GetRandomOrDefault(instance);
+                BaitCatchLootStack catchLootInfo = instance.GetRandomOrDefault();
                 ItemStack currentlyCaughtStack = new ItemStack(catchLootInfo.ItemObject,
                     Mathf.RoundToInt(UnityEngine.Random.Range(catchLootInfo.MinItemsCount,
                         catchLootInfo.MaxItemsCount)));
 
-                if (catchLootInfo.IsDroppedOnGround)
-                    ((ILootDropService)AccessTools
-                            .Field(typeof(FishingCharacterState), "lootDropService").GetValue(fishingCharacterState))
-                        .DropItemStackTweened(currentlyCaughtStack,
-                            (Vector3)AccessTools
-                                .Field(typeof(FishingCharacterState), "positionToDropHugeItems")
-                                .GetValue(fishingCharacterState));
-                else
-                {
-                    ((CharacterInventory)AccessTools
-                            .Field(typeof(FishingCharacterState), "inventory").GetValue(fishingCharacterState))
-                        .TryToAdd(currentlyCaughtStack.Object, currentlyCaughtStack.Count, out var remainder);
-                    if (remainder > 0)
-                        ((LootFactory)AccessTools.Field(typeof(FishingCharacterState), "lootFactory")
-                            .GetValue(fishingCharacterState)).Create(currentlyCaughtStack.Object, remainder,
-                            ((Transform)AccessTools.Field(typeof(FishingCharacterState), "playerTransform")
-                                .GetValue(fishingCharacterState)).position);
-                }
+                AccessTools.Field(typeof(FishingCharacterState), "currentlyCaughtStack").SetValue(fishingCharacterState, currentlyCaughtStack);
+                AccessTools.Field(typeof(FishingCharacterState), "catchLootInfo").SetValue(fishingCharacterState, catchLootInfo);
+
+                AccessTools.Method(typeof(FishingCharacterState), "GetCaughtLoot").Invoke(fishingCharacterState, null);
             }
             // ^
 
