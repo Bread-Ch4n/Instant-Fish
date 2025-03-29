@@ -73,9 +73,6 @@ public class Plugin : BaseUnityPlugin
             if (instance.Count == 0) _logger.LogError("[FishingCharacterState]: No items in the possible catch list!");
             else
             {
-                AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
-                    .Invoke(fishingCharacterState, new object[] { baitCatch });
-
                 BaitCatchLootStack catchLootInfo = instance.GetRandomOrDefault();
                 ItemStack currentlyCaughtStack = new ItemStack(catchLootInfo.ItemObject,
                     Mathf.RoundToInt(UnityEngine.Random.Range(catchLootInfo.MinItemsCount,
@@ -83,6 +80,9 @@ public class Plugin : BaseUnityPlugin
 
                 AccessTools.Field(typeof(FishingCharacterState), "currentlyCaughtStack").SetValue(fishingCharacterState, currentlyCaughtStack);
                 AccessTools.Field(typeof(FishingCharacterState), "catchLootInfo").SetValue(fishingCharacterState, catchLootInfo);
+
+                AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
+                    .Invoke(fishingCharacterState, new object[] { baitCatch });
 
                 AccessTools.Method(typeof(FishingCharacterState), "GetCaughtLoot").Invoke(fishingCharacterState, null);
             }
