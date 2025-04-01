@@ -91,6 +91,9 @@ public class Plugin : BaseUnityPlugin
                 AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
                     .Invoke(fishingCharacterState, [baitCatch]);
 
+                AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
+                    .Invoke(fishingCharacterState, new object[] { baitCatch });
+
                 AccessTools.Method(typeof(FishingCharacterState), "GetCaughtLoot").Invoke(fishingCharacterState, null);
             }
             // ^
