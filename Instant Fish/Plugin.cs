@@ -10,19 +10,16 @@ using IAmFuture.Gameplay.Character;
 using IAmFuture.Gameplay.Fishing;
 using IAmFuture.UserInterface.Gameplay.Fishing;
 using UnityEngine;
-// using Random = System.Random;
 
 namespace Instant_Fish;
 
-public static class IEnumerableExtensions
+public static class EnumerableExtensions
 {
     public static T GetRandomOrDefault<T>(this IEnumerable<T> instance)
     {
-        int maxExclusive = instance.Count();
-        if (maxExclusive == 0)
-            return default(T);
-        int index = Random.Range(0, maxExclusive); // Assumes Unity's Random.Range is used
-        return instance.ElementAt(index);
+        var enumerable = instance.ToList();
+        var maxExclusive = enumerable.Count;
+        return maxExclusive == 0 ? default : enumerable.ElementAt(Random.Range(0, maxExclusive));
     }
 }
 
@@ -31,29 +28,33 @@ public class Plugin : BaseUnityPlugin
 {
     private static ManualLogSource _logger;
 
-    // private static T GetRandomOrDefault<T>(IList<T> list)
-    // {
-    //     if (list == null || list.Count == 0)
-    //         return default;
-    //
-    //     int index = new Random().Next(list.Count);
-    //     return list[index];
-    // }
+    private static Harmony _harmony;
+
+
+    private void Awake()
+    {
+        _logger = Logger;
+        _harmony = new Harmony("auto_fish");
+        _harmony.PatchAll();
+        _logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
+    }
+
+    private void OnDestroy() => _harmony.UnpatchSelf();
 
     [HarmonyPatch(typeof(GUI_Fishing))]
-    class AutoFishPatch
+    private class AutoFishPatch
     {
         [HarmonyPatch(typeof(GUI_Fishing), "StartFishing")]
-        static bool Prefix(GUI_Fishing __instance)
+        private static bool Prefix(GUI_Fishing __instance)
         {
             // Used frequently below
-            FishingCharacterState fishingCharacterState =
+            var fishingCharacterState =
                 (FishingCharacterState)AccessTools.Field(typeof(GUI_Fishing), "fishingCharacterState")
                     .GetValue(__instance);
 
-            BaitCatchPossibleRewards baitCatch = (BaitCatchPossibleRewards)AccessTools
+            var baitCatch = (BaitCatchPossibleRewards)AccessTools
                 .Method(typeof(FishingCharacterState), "GetBaitCatch")
-                .Invoke(fishingCharacterState, new object[] { FindObjectOfType<GUI_SelectedFishBait>().SelectedBait });
+                .Invoke(fishingCharacterState, [FindObjectOfType<GUI_SelectedFishBait>().SelectedBait]);
             // ^
 
             // Register catch
@@ -62,24 +63,33 @@ public class Plugin : BaseUnityPlugin
             // ^
 
             // Drop item logic
-            List<BaitCatchLootStack> instance = new List<BaitCatchLootStack>();
+            var instance = new List<BaitCatchLootStack>();
 
             if (baitCatch.UniqueSurpriseItemsRewards)
                 instance.AddRange(baitCatch.PossibleCatch.Where(baitCatchLootStack =>
                     !((Statistics)AccessTools.Field(typeof(FishingCharacterState), "statistics")
-                        .GetValue(fishingCharacterState)).LootStatistic.TotalPickedItems.TryGetValue(baitCatchLootStack.ItemObject, out _)));
+                            .GetValue(fishingCharacterState)).LootStatistic.TotalPickedItems
+                        .TryGetValue(baitCatchLootStack.ItemObject, out _)));
             else instance = baitCatch.PossibleCatch;
 
-            if (instance.Count == 0) _logger.LogError("[FishingCharacterState]: No items in the possible catch list!");
+            if (instance.Count == 0)
+            {
+                _logger.LogError("[FishingCharacterState]: No items in the possible catch list!");
+            }
             else
             {
-                BaitCatchLootStack catchLootInfo = instance.GetRandomOrDefault();
-                ItemStack currentlyCaughtStack = new ItemStack(catchLootInfo.ItemObject,
-                    Mathf.RoundToInt(UnityEngine.Random.Range(catchLootInfo.MinItemsCount,
+                var catchLootInfo = instance.GetRandomOrDefault();
+                var currentlyCaughtStack = new ItemStack(catchLootInfo.ItemObject,
+                    Mathf.RoundToInt(Random.Range(catchLootInfo.MinItemsCount,
                         catchLootInfo.MaxItemsCount)));
 
-                AccessTools.Field(typeof(FishingCharacterState), "currentlyCaughtStack").SetValue(fishingCharacterState, currentlyCaughtStack);
-                AccessTools.Field(typeof(FishingCharacterState), "catchLootInfo").SetValue(fishingCharacterState, catchLootInfo);
+                AccessTools.Field(typeof(FishingCharacterState), "currentlyCaughtStack")
+                    .SetValue(fishingCharacterState, currentlyCaughtStack);
+                AccessTools.Field(typeof(FishingCharacterState), "catchLootInfo")
+                    .SetValue(fishingCharacterState, catchLootInfo);
+
+                AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
+                    .Invoke(fishingCharacterState, [baitCatch]);
 
                 AccessTools.Method(typeof(FishingCharacterState), "RegisterCaughtEntity")
                     .Invoke(fishingCharacterState, new object[] { baitCatch });
@@ -97,14 +107,5 @@ public class Plugin : BaseUnityPlugin
 
             return false;
         }
-    }
-
-
-    private void Awake()
-    {
-        _logger = Logger;
-        _logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
-        var h = new Harmony("auto_fish");
-        h.PatchAll();
     }
 }
